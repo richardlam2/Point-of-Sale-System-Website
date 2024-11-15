@@ -1,0 +1,194 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["views"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Key {
+  id              String  @id @unique
+  hashed_password String?
+  user_id         String
+  User            User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+model Session {
+  id             String @id @unique
+  user_id        String
+  active_expires BigInt
+  idle_expires   BigInt
+  User           User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+model Transaction {
+  Id                          String                        @id(map: "PK_Transaction") @db.Uuid
+  DateCreated                 DateTime
+  DateCompleted               DateTime?
+  DateRefunded                DateTime?
+  StatusId                    String                        @db.Uuid
+  TotalCost                   Float
+  CustomerId                  String?
+  TransactionStatus           transaction_status            @relation(fields: [StatusId], references: [Id], onUpdate: NoAction, map: "FK_Transaction_TransactionStatus")
+  User                        User?                         @relation(fields: [CustomerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Transaction_User")
+  product_transaction_mapping product_transaction_mapping[]
+}
+
+model User {
+  id                            String                          @id @unique
+  FirstName                     String?                         @db.VarChar(30)
+  MiddleName                    String?                         @db.VarChar(30)
+  LastName                      String?                         @db.VarChar(40)
+  Email                         String                          @unique @db.VarChar(255)
+  DateOfBirth                   DateTime?                       @db.Date
+  CustomerId                    String?                         @db.Uuid
+  SellerId                      String?                         @db.Uuid
+  is_admin                      Boolean?                        @default(false)
+  is_active                     Boolean?                        @default(true)
+  Key                           Key[]
+  Session                       Session[]
+  Transaction                   Transaction[]
+  Customer                      customer?                       @relation(fields: [CustomerId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_User_Customer")
+  Seller                        seller?                         @relation(fields: [SellerId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_User_Seller")
+  product_shopping_cart_mapping product_shopping_cart_mapping[]
+}
+
+model customer {
+  Id            String    @id(map: "PK__Customer__3214EC07D2EABD6C") @db.Uuid
+  DateOfBirth   DateTime? @db.Date
+  AccountCredit Float?
+  User          User[]
+}
+
+model discounts {
+  Id              String     @id(map: "PK_Discounts") @db.Uuid
+  Percent         Float?
+  ProductId       String     @db.Uuid
+  Description     String?    @db.Uuid
+  discounts       discounts  @relation("discountsTodiscounts", fields: [Id], references: [Id], onUpdate: NoAction, map: "FK_Discounts_Discounts")
+  other_discounts discounts? @relation("discountsTodiscounts")
+}
+
+model product {
+  Id                          String                        @id(map: "PK_Product") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  DetailsId                   String                        @db.Uuid
+  SerialNumber                String                        @db.VarChar(255)
+  productdetails              product_details               @relation(fields: [DetailsId], references: [Id], onUpdate: NoAction, map: "FK_Product_ProductDetails")
+  product_transaction_mapping product_transaction_mapping[]
+}
+
+model seller {
+  Id              String            @id(map: "PK__Seller__3214EC071BE8672B") @db.Uuid
+  CompanyName     String?           @db.VarChar(255)
+  User            User[]
+  product_details product_details[]
+}
+
+model product_category {
+  Id              String            @id(map: "PK__ProductC__3214EC07CA9EDAAF") @db.Uuid
+  Name            String?           @db.VarChar(255)
+  product_details product_details[]
+}
+
+model product_details {
+  Id                            String                          @id(map: "PK__ProductD__3214EC0722802DA4") @db.Uuid
+  Name                          String?                         @db.VarChar(300)
+  CategoryId                    String?                         @db.Uuid
+  SellerId                      String?                         @db.Uuid
+  Price                         Float?
+  InventoryCount                Int?
+  LowInventory                  Boolean?
+  IsActive                      Boolean?                        @default(true)
+  product                       product[]
+  product_category              product_category?               @relation(fields: [CategoryId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ProductDe__Categ__66603565")
+  seller                        seller?                         @relation(fields: [SellerId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ProductDe__Selle__6754599E")
+  product_rating                product_rating[]
+  product_shopping_cart_mapping product_shopping_cart_mapping[]
+}
+
+model product_rating {
+  Id              String           @id(map: "PK__ProductR__3214EC07C224CDFF") @db.Uuid
+  Rating          Int?
+  Description     String?          @db.VarChar(400)
+  ProductId       String?          @db.Uuid
+  product_details product_details? @relation(fields: [ProductId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ProductRa__Produ__778AC167")
+}
+
+model product_shopping_cart_mapping {
+  Id              String           @id(map: "PK__ProductS__3214EC074763A189") @db.Uuid
+  ProductId       String?          @db.Uuid
+  UserId          String?
+  User            User?            @relation(fields: [UserId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_ProductShoppingCartMapping_User")
+  product_details product_details? @relation(fields: [ProductId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ProductSh__Produ__7B5B524B")
+}
+
+model product_transaction_mapping {
+  Id            String      @id(map: "PK_ProductTransactionMapping") @db.Uuid
+  ProductId     String      @db.Uuid
+  TransactionId String      @db.Uuid
+  product       product     @relation(fields: [ProductId], references: [Id], onUpdate: NoAction, map: "FK_ProductTransactionMapping_Product")
+  Transaction   Transaction @relation(fields: [TransactionId], references: [Id], onUpdate: NoAction, map: "FK_ProductTransactionMapping_Transaction")
+}
+
+model transaction_status {
+  Id          String        @id(map: "PK_TransactionStatus") @db.Uuid
+  name        String        @db.VarChar(255)
+  Transaction Transaction[]
+}
+
+view search_products_grid_view {
+  Id               String   @unique @db.Uuid
+  Name             String?  @db.VarChar(300)
+  CategoryId       String?  @db.Uuid
+  SellerId         String?  @db.Uuid
+  Price            Float?
+  InventoryCount   Int?
+  rating           Decimal? @db.Decimal
+  product_category String?  @db.VarChar(255)
+}
+
+view checkout_items_view {
+  Id               String  @unique @db.Uuid
+  ProductId        String? @db.Uuid
+  UserId           String?
+  Name             String? @db.VarChar(300)
+  Price            Float?
+  product_category String? @db.VarChar(255)
+}
+
+view order_history_view {
+  Id                 String    @unique @db.Uuid
+  DateCreated        DateTime?
+  transaction_status String?   @db.VarChar(255)
+  TotalCost          Float?
+  CustomerId         String?
+  product_count      Int?
+}
+
+view user_details {
+  id          String    @unique
+  Email       String?   @db.VarChar(255)
+  FirstName   String?   @db.VarChar(30)
+  LastName    String?   @db.VarChar(40)
+  DateOfBirth DateTime? @db.Date
+}
+
+view sales_report_view {
+  Id               String   @unique @db.Uuid
+  Name             String?  @db.VarChar(300)
+  Price            Float?
+  InventoryCount   Int?
+  LowInventory     Boolean?
+  SellerId         String?  @db.Uuid
+  product_category String?  @db.VarChar(255)
+  total_sales      BigInt?
+  total_revenue    Float?
+  user_id          String?
+}
